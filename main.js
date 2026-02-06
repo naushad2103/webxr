@@ -12,6 +12,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType("local-floor");
 document.body.appendChild(renderer.domElement);
 
 const light = new THREE.HemisphereLight(0xffffff, 0x222233, 1.2);
@@ -112,7 +113,8 @@ clearBtn.addEventListener("click", () => {
 
 const arButton = ARButton.createButton(renderer, {
   requiredFeatures: ["hit-test", "local-floor"],
-  optionalFeatures: ["anchors", "plane-detection"],
+  optionalFeatures: ["anchors", "plane-detection", "dom-overlay"],
+  domOverlay: { root: document.body },
 });
 
 document.body.appendChild(arButton);
@@ -190,6 +192,7 @@ renderer.setAnimationLoop((timestamp, frame) => {
         if (pose) {
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
+          setStatus("Floor found. Tap to place.");
 
           const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
           if (!hasLastTrace) {
@@ -204,7 +207,7 @@ renderer.setAnimationLoop((timestamp, frame) => {
         }
       } else {
         reticle.visible = false;
-        setStatus("Searching for floor...");
+        setStatus("Searching for floor... Move device slowly.");
       }
     }
   }
