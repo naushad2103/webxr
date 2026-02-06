@@ -67,3 +67,9 @@ html, body {
 canvas {
   display: block;
 }
+
+model-viewer {
+  width: 100vw;
+  height: 100vh;
+  background: #0a0b0f;
+}
