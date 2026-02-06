@@ -45,9 +45,11 @@ let modelTemplate = null;
 let modelReady = false;
 
 let hitTestSource = null;
+let transientHitTestSource = null;
 let localRefSpace = null;
 let viewerSpace = null;
 let hitTestSourceRequested = false;
+let lastTransientHitMatrix = null;
 const surfaceUp = new THREE.Vector3(0, 1, 0);
 const poseUp = new THREE.Vector3();
 
@@ -112,7 +114,11 @@ renderer.xr.addEventListener("sessionstart", async () => {
   const session = renderer.xr.getSession();
   if (session) {
     session.addEventListener("select", () => {
-      if (reticle.visible) placeObject(reticle.matrix);
+      if (lastTransientHitMatrix) {
+        placeObject(lastTransientHitMatrix);
+      } else if (reticle.visible) {
+        placeObject(reticle.matrix);
+      }
     });
   }
 
@@ -155,6 +161,12 @@ renderer.setAnimationLoop((timestamp, frame) => {
         hitTestSource = source;
       });
 
+      session.requestHitTestSourceForTransientInput({ profile: "generic-touchscreen" }).then((source) => {
+        transientHitTestSource = source;
+      }).catch(() => {
+        transientHitTestSource = null;
+      });
+
       session.requestReferenceSpace("local-floor").then((space) => {
         localRefSpace = space;
       });
@@ -195,6 +207,27 @@ renderer.setAnimationLoop((timestamp, frame) => {
         reticle.visible = false;
         floorGlow.visible = false;
         setStatus("Searching for floor... Move device slowly.");
+      }
+    }
+
+    if (transientHitTestSource && localRefSpace) {
+      const transientResults = frame.getHitTestResultsForTransientInput(transientHitTestSource);
+      lastTransientHitMatrix = null;
+      for (const result of transientResults) {
+        if (result.results.length > 0) {
+          const hit = result.results[0];
+          const pose = hit.getPose(localRefSpace);
+          if (pose) {
+            const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+            const q = new THREE.Quaternion().setFromRotationMatrix(m);
+            poseUp.set(0, 1, 0).applyQuaternion(q).normalize();
+            const isHorizontal = poseUp.dot(surfaceUp) > 0.9;
+            if (isHorizontal) {
+              lastTransientHitMatrix = m;
+              break;
+            }
+          }
+        }
       }
     }
   }
