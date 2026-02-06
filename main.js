@@ -29,6 +29,14 @@ reticle.matrixAutoUpdate = false;
 reticle.visible = false;
 scene.add(reticle);
 
+const floorGlow = new THREE.Mesh(
+  new THREE.CircleGeometry(0.18, 48),
+  new THREE.MeshBasicMaterial({ color: 0x00c2ff, transparent: true, opacity: 0.15 })
+);
+floorGlow.rotation.x = -Math.PI / 2;
+floorGlow.visible = false;
+scene.add(floorGlow);
+
 const traceGroup = new THREE.Group();
 scene.add(traceGroup);
 
@@ -52,11 +60,11 @@ function setStatus(text) {
 }
 
 function addTraceStamp(position, quaternion) {
-  const geo = new THREE.PlaneGeometry(0.06, 0.06);
+  const geo = new THREE.PlaneGeometry(0.12, 0.12);
   const mat = new THREE.MeshBasicMaterial({
     color: 0x00c2ff,
     transparent: true,
-    opacity: 0.25,
+    opacity: 0.35,
     depthWrite: false
   });
   const stamp = new THREE.Mesh(geo, mat);
@@ -84,6 +92,9 @@ function placeObject(matrix) {
         node.receiveShadow = true;
       }
     });
+    const box = new THREE.Box3().setFromObject(clone);
+    const minY = box.min.y;
+    clone.position.y -= minY;
     group.add(clone);
   } else {
     const base = new THREE.Mesh(
@@ -101,6 +112,7 @@ function placeObject(matrix) {
     group.add(box);
   }
 
+  placedGroup.clear();
   group.applyMatrix4(matrix);
   placedGroup.add(group);
 }
@@ -158,6 +170,7 @@ renderer.xr.addEventListener("sessionend", () => {
   hitTestSource = null;
   hasLastTrace = false;
   reticle.visible = false;
+  floorGlow.visible = false;
 });
 
 renderer.setAnimationLoop((timestamp, frame) => {
@@ -192,6 +205,8 @@ renderer.setAnimationLoop((timestamp, frame) => {
         if (pose) {
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
+          floorGlow.visible = true;
+          floorGlow.position.setFromMatrixPosition(reticle.matrix);
           setStatus("Floor found. Tap to place.");
 
           const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
@@ -207,6 +222,7 @@ renderer.setAnimationLoop((timestamp, frame) => {
         }
       } else {
         reticle.visible = false;
+        floorGlow.visible = false;
         setStatus("Searching for floor... Move device slowly.");
       }
     }
@@ -219,8 +235,4 @@ window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-renderer.domElement.addEventListener("click", () => {
-  if (reticle.visible) placeObject(reticle.matrix);
 });
