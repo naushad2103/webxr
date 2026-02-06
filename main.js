@@ -50,6 +50,7 @@ let localRefSpace = null;
 let viewerSpace = null;
 let hitTestSourceRequested = false;
 let lastTransientHitMatrix = null;
+let lastStableHitMatrix = null;
 const surfaceUp = new THREE.Vector3(0, 1, 0);
 const poseUp = new THREE.Vector3();
 
@@ -59,6 +60,10 @@ function setStatus(text) {
 
 function placeObject(matrix) {
   const group = new THREE.Group();
+  const pos = new THREE.Vector3();
+  const quat = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  matrix.decompose(pos, quat, scale);
 
   if (modelTemplate) {
     const clone = modelTemplate.clone(true);
@@ -68,6 +73,7 @@ function placeObject(matrix) {
         node.receiveShadow = true;
       }
     });
+    clone.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(clone);
     const minY = box.min.y;
     clone.position.y -= minY;
@@ -89,7 +95,8 @@ function placeObject(matrix) {
   }
 
   placedGroup.clear();
-  group.applyMatrix4(matrix);
+  group.position.copy(pos);
+  group.quaternion.copy(quat);
   placedGroup.add(group);
 }
 
@@ -116,6 +123,8 @@ renderer.xr.addEventListener("sessionstart", async () => {
     session.addEventListener("select", () => {
       if (lastTransientHitMatrix) {
         placeObject(lastTransientHitMatrix);
+      } else if (lastStableHitMatrix) {
+        placeObject(lastStableHitMatrix);
       } else if (reticle.visible) {
         placeObject(reticle.matrix);
       }
@@ -193,6 +202,7 @@ renderer.setAnimationLoop((timestamp, frame) => {
           const isHorizontal = poseUp.dot(surfaceUp) > 0.9;
 
           if (isHorizontal) {
+            lastStableHitMatrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
             reticle.visible = true;
             floorGlow.visible = true;
             floorGlow.position.setFromMatrixPosition(reticle.matrix);
