@@ -1,6 +1,6 @@
-import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-import { ARButton } from "https://unpkg.com/three@0.160.0/examples/jsm/webxr/ARButton.js";
-import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+import { ARButton } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/webxr/ARButton.js";
+import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
 
 const statusEl = document.getElementById("status");
 const clearBtn = document.getElementById("clear");
@@ -116,6 +116,12 @@ const arButton = ARButton.createButton(renderer, {
 });
 
 document.body.appendChild(arButton);
+
+if (!("xr" in navigator)) {
+  setStatus("WebXR not available in this browser. Try Chrome on Android.");
+} else {
+  setStatus("WebXR available. Tap AR to start.");
+}
 
 renderer.xr.addEventListener("sessionstart", async () => {
   const session = renderer.xr.getSession();
