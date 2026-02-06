@@ -37,9 +37,6 @@ floorGlow.rotation.x = -Math.PI / 2;
 floorGlow.visible = false;
 scene.add(floorGlow);
 
-const traceGroup = new THREE.Group();
-scene.add(traceGroup);
-
 const placedGroup = new THREE.Group();
 scene.add(placedGroup);
 
@@ -51,34 +48,11 @@ let hitTestSource = null;
 let localRefSpace = null;
 let viewerSpace = null;
 let hitTestSourceRequested = false;
-let lastTracePos = new THREE.Vector3();
-let hasLastTrace = false;
-const maxTraceStamps = 1200;
+const surfaceUp = new THREE.Vector3(0, 1, 0);
+const poseUp = new THREE.Vector3();
 
 function setStatus(text) {
   statusEl.textContent = text;
-}
-
-function addTraceStamp(position, quaternion) {
-  const geo = new THREE.PlaneGeometry(0.12, 0.12);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0x00c2ff,
-    transparent: true,
-    opacity: 0.35,
-    depthWrite: false
-  });
-  const stamp = new THREE.Mesh(geo, mat);
-  stamp.rotation.x = -Math.PI / 2;
-  stamp.position.copy(position);
-  stamp.quaternion.copy(quaternion);
-  traceGroup.add(stamp);
-
-  while (traceGroup.children.length > maxTraceStamps) {
-    const child = traceGroup.children.shift();
-    if (child) child.geometry.dispose();
-  }
-
-  clearBtn.disabled = traceGroup.children.length === 0;
 }
 
 function placeObject(matrix) {
@@ -117,11 +91,8 @@ function placeObject(matrix) {
   placedGroup.add(group);
 }
 
-clearBtn.addEventListener("click", () => {
-  traceGroup.children.forEach((child) => child.geometry.dispose());
-  traceGroup.clear();
-  clearBtn.disabled = true;
-});
+clearBtn.disabled = true;
+clearBtn.addEventListener("click", () => {});
 
 const arButton = ARButton.createButton(renderer, {
   requiredFeatures: ["hit-test", "local-floor"],
@@ -168,7 +139,6 @@ renderer.xr.addEventListener("sessionend", () => {
   setStatus("Session ended.");
   hitTestSourceRequested = false;
   hitTestSource = null;
-  hasLastTrace = false;
   reticle.visible = false;
   floorGlow.visible = false;
 });
@@ -203,21 +173,22 @@ renderer.setAnimationLoop((timestamp, frame) => {
         const hit = hitTestResults[0];
         const pose = hit.getPose(localRefSpace);
         if (pose) {
-          reticle.visible = true;
+          const orientation = pose.transform.orientation;
           reticle.matrix.fromArray(pose.transform.matrix);
-          floorGlow.visible = true;
-          floorGlow.position.setFromMatrixPosition(reticle.matrix);
-          setStatus("Floor found. Tap to place.");
+          reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
-          const pos = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
-          if (!hasLastTrace) {
-            lastTracePos.copy(pos);
-            hasLastTrace = true;
-          }
+          poseUp.set(0, 1, 0).applyQuaternion(reticle.quaternion).normalize();
+          const isHorizontal = poseUp.dot(surfaceUp) > 0.9;
 
-          if (pos.distanceTo(lastTracePos) > 0.05) {
-            addTraceStamp(pos, reticle.quaternion);
-            lastTracePos.copy(pos);
+          if (isHorizontal) {
+            reticle.visible = true;
+            floorGlow.visible = true;
+            floorGlow.position.setFromMatrixPosition(reticle.matrix);
+            setStatus("Floor found. Tap to place.");
+          } else {
+            reticle.visible = false;
+            floorGlow.visible = false;
+            setStatus("Aim at the floor.");
           }
         }
       } else {
